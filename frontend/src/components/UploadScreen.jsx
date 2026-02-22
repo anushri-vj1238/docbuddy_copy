@@ -1,7 +1,18 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
-export default function UploadScreen({ onSubmit, error }) {
-  const [mode, setMode] = useState(null); // null | "text"
+const modeTitle = {
+  text: "Paste your document text",
+  file: "Upload a text file",
+  photo: "Add a photo or camera scan"
+};
+
+const modeHint = {
+  text: "Best for contracts copied from email or PDFs.",
+  file: "Upload a .txt file and review before analyzing.",
+  photo: "Use your gallery or camera and DocBuddy will extract text."
+};
+
+export default function UploadScreen({ mode, onBackHome, onSubmit, error }) {
   const [text, setText] = useState("");
   const [cameraStream, setCameraStream] = useState(null);
 
@@ -9,6 +20,19 @@ export default function UploadScreen({ onSubmit, error }) {
   const imageInputRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+
+  useEffect(() => {
+    setText("");
+  }, [mode]);
+
+  useEffect(() => {
+    if (!cameraStream || !videoRef.current) return;
+    videoRef.current.srcObject = cameraStream;
+
+    return () => {
+      cameraStream.getTracks().forEach((track) => track.stop());
+    };
+  }, [cameraStream]);
 
   function handleAnalyze() {
     if (!text.trim()) return;
@@ -22,7 +46,6 @@ export default function UploadScreen({ onSubmit, error }) {
     const reader = new FileReader();
     reader.onload = (event) => {
       setText(event.target.result || "");
-      setMode("text");
     };
     reader.readAsText(file);
   }
@@ -31,17 +54,12 @@ export default function UploadScreen({ onSubmit, error }) {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Mock OCR for now
     setText("Mock OCR text from image. Rent is $1200. Late fee is $75 after 5 days.");
-    setMode("text");
   }
 
   async function handleLiveCamera() {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     setCameraStream(stream);
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-    }
   }
 
   function takePhoto() {
@@ -53,103 +71,100 @@ export default function UploadScreen({ onSubmit, error }) {
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0);
 
-    // Stop camera
-    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream.getTracks().forEach((track) => track.stop());
     setCameraStream(null);
-
-    // Mock OCR result
     setText("Mock camera scan text. Lease is 12 months. Late fee is $75.");
-    setMode("text");
   }
 
   return (
-    <div className="min-h-screen flex justify-center bg-[#fff7e8] p-6">
-      <div className="max-w-2xl w-full">
-        <h1 className="text-4xl font-bold mb-2">DocBuddy</h1>
-        <p className="text-slate-600 mb-6">Understand before you sign</p>
-
-        <h2 className="text-lg font-semibold mb-3">Add your document to analyze:</h2>
-
-        <div className="flex flex-wrap gap-3 mb-6">
-          <button
-            onClick={handleLiveCamera}
-            className="px-4 py-2 rounded-xl border bg-white"
-          >
-            Live Camera
-          </button>
-
-          <button
-            onClick={() => imageInputRef.current.click()}
-            className="px-4 py-2 rounded-xl border bg-white"
-          >
-            Photo Gallery
-          </button>
-
-          <button
-            onClick={() => fileInputRef.current.click()}
-            className="px-4 py-2 rounded-xl border bg-white"
-          >
-            Upload File
-          </button>
-
-          <button
-            onClick={() => setMode("text")}
-            className="px-4 py-2 rounded-xl border bg-white"
-          >
-            Paste Text
+    <div className="min-h-screen ghibli-bg p-6 md:p-10">
+      <div className="mx-auto max-w-4xl rounded-3xl border border-blue-100 bg-white/85 p-6 shadow-xl backdrop-blur-sm md:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wider text-blue-500">DocBuddy input</p>
+            <h1 className="mt-1 text-3xl font-black text-slate-800 md:text-4xl">{modeTitle[mode]}</h1>
+            <p className="mt-2 text-slate-600">{modeHint[mode]}</p>
+          </div>
+          <button onClick={onBackHome} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700">
+            ← Back to choices
           </button>
         </div>
 
-        <input
-          type="file"
-          accept=".txt"
-          ref={fileInputRef}
-          style={{ display: "none" }}
-          onChange={handleFileUpload}
-        />
-
-        <input
-          type="file"
-          accept="image/*"
-          ref={imageInputRef}
-          style={{ display: "none" }}
-          onChange={handleImageUpload}
-        />
-
-        {cameraStream && (
-          <div className="mb-4">
-            <video ref={videoRef} autoPlay className="w-full rounded-xl mb-2" />
-            <canvas ref={canvasRef} style={{ display: "none" }} />
-            <button
-              onClick={takePhoto}
-              className="px-4 py-2 bg-blue-500 text-white rounded-xl"
-            >
-              Take Photo
-            </button>
-          </div>
-        )}
-
-        {mode === "text" && (
-          <div className="mb-4">
+        <div className="mt-6 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 via-pink-50 to-green-50 p-4">
+          {mode === "text" && (
             <textarea
-              className="w-full h-48 p-4 border-2 rounded-xl"
-              placeholder="Paste or load your document text here..."
+              className="h-64 w-full rounded-2xl border border-slate-200 bg-white p-4 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              placeholder="Paste your document text here..."
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
-          </div>
-        )}
+          )}
 
-        {error && <p className="text-red-600 mb-2">{error}</p>}
+          {mode === "file" && (
+            <div>
+              <button
+                onClick={() => fileInputRef.current.click()}
+                className="rounded-xl bg-blue-500 px-4 py-2 font-semibold text-white hover:bg-blue-600"
+              >
+                Choose .txt file
+              </button>
+              <input type="file" accept=".txt" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+              <textarea
+                className="mt-4 h-56 w-full rounded-2xl border border-slate-200 bg-white p-4 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                placeholder="Uploaded text will appear here..."
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+              />
+            </div>
+          )}
 
-        {mode === "text" && (
-          <button
-            onClick={handleAnalyze}
-            className="mt-2 px-6 py-3 rounded-xl bg-blue-500 text-white font-semibold"
-          >
-            Analyze
-          </button>
-        )}
+          {mode === "photo" && (
+            <div>
+              <div className="mb-3 flex flex-wrap gap-3">
+                <button
+                  onClick={() => imageInputRef.current.click()}
+                  className="rounded-xl bg-pink-500 px-4 py-2 font-semibold text-white hover:bg-pink-600"
+                >
+                  Select from Gallery
+                </button>
+                <button
+                  onClick={handleLiveCamera}
+                  className="rounded-xl bg-green-500 px-4 py-2 font-semibold text-white hover:bg-green-600"
+                >
+                  Open Camera
+                </button>
+                <input type="file" accept="image/*" ref={imageInputRef} className="hidden" onChange={handleImageUpload} />
+              </div>
+
+              {cameraStream && (
+                <div className="mb-3">
+                  <video ref={videoRef} autoPlay className="mb-2 w-full rounded-xl border border-slate-200" />
+                  <canvas ref={canvasRef} className="hidden" />
+                  <button onClick={takePhoto} className="rounded-xl bg-slate-800 px-4 py-2 font-semibold text-white">
+                    Capture photo
+                  </button>
+                </div>
+              )}
+
+              <textarea
+                className="h-52 w-full rounded-2xl border border-slate-200 bg-white p-4 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                placeholder="Extracted text preview will appear here..."
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+
+        {error && <p className="mt-4 text-red-600">{error}</p>}
+
+        <button
+          onClick={handleAnalyze}
+          disabled={!text.trim()}
+          className="mt-6 w-full rounded-xl bg-blue-600 py-3 font-bold text-white shadow transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+        >
+          Analyze with DocBuddy
+        </button>
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import Results from "./components/Results";
 
 export default function App() {
   const [step, setStep] = useState("splash"); // splash | upload | processing | results
+  const [entryMode, setEntryMode] = useState("text"); // text | file | photo
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
@@ -32,11 +33,25 @@ export default function App() {
   }
 
   if (step === "splash") {
-    return <Splash onStart={() => setStep("upload")} />;
+    return (
+      <Splash
+        onChooseMode={(mode) => {
+          setEntryMode(mode);
+          setStep("upload");
+        }}
+      />
+    );
   }
 
   if (step === "upload") {
-    return <UploadScreen onSubmit={analyzeText} error={error} />;
+    return (
+      <UploadScreen
+        mode={entryMode}
+        onBackHome={() => setStep("splash")}
+        onSubmit={analyzeText}
+        error={error}
+      />
+    );
   }
 
   if (step === "processing") {
@@ -44,7 +59,7 @@ export default function App() {
   }
 
   if (step === "results") {
-    return <Results result={result} onBack={() => setStep("upload")} />;
+    return <Results result={result} onBack={() => setStep("splash")} />;
   }
 
   return null;
